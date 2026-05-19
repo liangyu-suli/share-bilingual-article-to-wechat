@@ -86,9 +86,24 @@ From the raw extracted text, identify and preserve:
 - Title (exact wording)
 - Author, date, read time if present
 - Every paragraph verbatim — do not rephrase, summarize, or rewrite a single word
-- All headings, lists, blockquotes
+- All headings, lists, blockquotes belonging to the article body
 
-Convert to clean Markdown structure. Derive a slug from the URL path and save to `<slug>/<slug>.md`. Proceed with that file.
+**Drop entirely** — do not include in the saved Markdown, do not translate, do
+not re-attach later. Stripping at the source means the rest of the pipeline
+never sees this content:
+
+- Related Links / "Read more" / "More from this author" sections
+- Comments section and every reader comment
+- Footers, site navigation, share buttons, subscribe/CTA blocks
+- Cookie banners, paywall prompts, newsletter pop-ups
+
+Convert what remains to clean Markdown structure. Derive a slug from the URL
+path and save to `<slug>/<slug>.md`. Proceed with that file.
+
+> **Local-Markdown inputs:** if the input is already a Markdown file rather
+> than a URL, apply the same drop-list before continuing — open the file, remove
+> any related-links / comments / footer sections, save it back, then proceed
+> from Stage 1 with the cleaned source.
 
 ### Stage 1 — Pre-processing
 
@@ -187,13 +202,9 @@ cd /tmp/foolgry-editor/wxmd-cli
 node src/index.js typeset --input <slug>/<slug>.bilingual.md --style <chosen-style> --output html > <slug>/<slug>.bilingual.wechat.html
 ```
 
-**Content removal.** After generating either HTML, strip the following sections
-by removing the corresponding DOM nodes (use Python + html.parser if needed):
-- Related Links / "Read more" sections
-- Comments section and any reader comments
-- Footers, navigation, share buttons
-
-Keep: article title, subtitle, author/date line, TL;DR / lede, body paragraphs.
+No post-HTML cleanup is needed — related links, comments, and footers were
+already dropped from the Markdown in Stage 0, so the generated HTML contains
+only the article body.
 
 Tell the user the paths to open both `.wechat.html` files in their browser for local preview.
 
@@ -300,4 +311,4 @@ Skip single-use phrases, context-dependent renderings, and proper nouns.
 | Human names | Verbatim — never transliterate |
 | URLs, image paths | Verbatim |
 | Inline code, fenced code, HTML | Verbatim |
-| Related links, comments, footers (WeChat HTML only) | Drop |
+| Related links, comments, footers, share buttons, CTAs | Drop at source (Stage 0) |
