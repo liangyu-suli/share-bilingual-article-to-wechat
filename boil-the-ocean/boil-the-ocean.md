@@ -34,34 +34,8 @@ Buckminster Fuller coined the term "ephemeralization" in 1938: doing more and mo
 
 This is Jevons Paradox for everything. When you make a resource dramatically more efficient, you don't use less of it — you use vastly more. Steam engines didn't reduce coal consumption. They made coal so useful that demand exploded. The same thing is about to happen with intelligence, with labor, with every service and product we can imagine.
 
-But Jevons Paradox doesn't activate on its own. It requires capital and management to actually raise their ambitions — to boil lakes and oceans instead of drowning them in committee
+But Jevons Paradox doesn't activate on its own. It requires capital and management to actually raise their ambitions — to boil lakes and oceans instead of drowning them in committee.
 
 That's what startups have always been good at: moving fast in the face of radical uncertainty, building for the 10x future while everyone else is optimizing for the 1.05x present.
 
 Time to start.
-
----
-
-## Take Action
-
-Share this with someone who needs to think bigger
-
----
-
-## Related Links
-
-- Sam Altman: Three Observations on AGI (Sam Altman's Blog)
-- Garry on scarcity vs. creation mindset (@garrytan)
-- Garry on limitless human desire (@garrytan)
-
----
-
-## Comments
-
-**Nick DeMarco** Member • about 2 months ago
-
-I agree with the optimism — for people like us who are already building with these tools. But "just become a builder" isn't a plan for the 90% who won't. Jevons Paradox for intelligence sounds great until you realize the demand explosion benefits the people who know how to direct the machines, not the ones who were competing with them.
-
-We're not smarter or more deserving — we just learned to use the tools early. That's not a moat, it's a head start. And head starts become chasms fast when the thing accelerating is intelligence itself.
-
-The real question this post doesn't answer: what's the actual plan for the people who don't make the jump? "Human desire is limitless" doesn't pay rent. If we're serious about this being positive-sum, we need to be just as ambitious about the transition as we are about the destination.
