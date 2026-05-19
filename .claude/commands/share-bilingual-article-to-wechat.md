@@ -141,26 +141,59 @@ Write four files (using `<slug>` as the folder and base name). The original
 
 **`<slug>.bilingual.md`** — Interleaved. Each English unit (heading, paragraph, list block) followed immediately by its Chinese translation. English is copied verbatim — never modified.
 
+**Style selection — ask the user before generating HTML.**
+
+List the available themes and ask which to use:
+
+```
+Available styles:
+  wechat-default      默认公众号风格
+  latepost-depth      晚点风格
+  wechat-ft           金融时报
+  wechat-anthropic    Claude
+  wechat-claude-song  Claude Song
+  wechat-tech         技术风格
+  wechat-elegant      优雅简约
+  wechat-deepread     深度阅读
+  wechat-nyt          纽约时报
+  wechat-jonyive      Jony Ive
+  wechat-medium       Medium 长文
+  wechat-apple        Apple 极简
+  kenya-emptiness     原研哉·空
+  hische-editorial    Hische·编辑部
+  ando-concrete       安藤·清水
+  gaudi-organic       高迪·有机
+  kami                Kami
+  guardian            Guardian 卫报
+  nikkei              Nikkei 日経
+  lemonde             Le Monde 世界报
+
+Which style would you like? (default: wechat-elegant)
+```
+
+Use the chosen style (or `wechat-elegant` if the user skips) for both HTML files below.
+
 **`<slug>.wechat.html`** — Chinese-only WeChat HTML:
-1. Run `md2wechat convert <slug>/<slug>.zh.md --mode ai --output <slug>/<slug>.wechat.html`
-2. This produces a `<slug>.wechat.prompt.txt` instead of HTML — read it, use it to generate the WeChat HTML yourself (inline CSS only, no `<style>` tags, WeChat green `#07c160` as accent color)
-3. In the title section, show the original English title in small muted italic text above the Chinese title
-4. Write the HTML to `<slug>/<slug>.wechat.html` and delete the `.prompt.txt`
+
+```bash
+cd /tmp/foolgry-editor/wxmd-cli
+node src/index.js typeset --input <slug>/<slug>.zh.md --style <chosen-style> --output html > <slug>/<slug>.wechat.html
+```
 
 **`<slug>.bilingual.wechat.html`** — Bilingual WeChat HTML:
-1. Run `md2wechat convert <slug>/<slug>.bilingual.md --mode ai --output <slug>/<slug>.bilingual.wechat.html`
-2. Same process: read the prompt, generate bilingual HTML (EN paragraph followed by ZH paragraph, each pair visually grouped), write to `<slug>/<slug>.bilingual.wechat.html`, delete the `.prompt.txt`
-3. After each ZH paragraph, add `margin-bottom:24px` to create breathing room before the next EN paragraph
 
-**Content removal — the only exception to the verbatim rule.** When generating
-either WeChat HTML, drop the following source sections entirely rather than
-translate them:
+```bash
+cd /tmp/foolgry-editor/wxmd-cli
+node src/index.js typeset --input <slug>/<slug>.bilingual.md --style <chosen-style> --output html > <slug>/<slug>.bilingual.wechat.html
+```
+
+**Content removal.** After generating either HTML, strip the following sections
+by removing the corresponding DOM nodes (use Python + html.parser if needed):
 - Related Links / "Read more" sections
 - Comments section and any reader comments
 - Footers, navigation, share buttons
 
-Keep (and translate verbatim): article title, subtitle, author/date line,
-TL;DR / lede, body paragraphs.
+Keep: article title, subtitle, author/date line, TL;DR / lede, body paragraphs.
 
 Tell the user the paths to open both `.wechat.html` files in their browser for local preview.
 
