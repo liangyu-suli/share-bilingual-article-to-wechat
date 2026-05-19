@@ -33,11 +33,18 @@ set +a
 [[ -n "${WECHAT_APPID:-}"  && "$WECHAT_APPID"  != "your_appid_here"      ]] || fail "WECHAT_APPID is not set in .env. Get it from the WeChat console → Settings → Development → Basic Configuration."
 [[ -n "${WECHAT_SECRET:-}" && "$WECHAT_SECRET" != "your_appsecret_here"  ]] || fail "WECHAT_SECRET is not set in .env. Generate or reveal it in the WeChat console (same page as the AppID)."
 
-# 3. md2wechat is on PATH
+# 3. md2wechat is on PATH (WeChat draft API client)
 command -v md2wechat >/dev/null 2>&1 || fail "md2wechat is not installed or not on PATH. See README — install via 'go install' or download the binary from https://github.com/geekjourneyx/md2wechat-skill."
 
 # 4. Python + Pillow available for cover image generation
 python3 -c 'import PIL' 2>/dev/null || fail "Python Pillow is not installed. Run: pip install Pillow"
+
+# 5. Node.js is on PATH (wxmd-cli is a Node script invoked in Stage 7)
+command -v node >/dev/null 2>&1 || fail "Node.js is not installed or not on PATH. Install it (brew install node, nvm, etc.) before re-running."
+
+# 6. wxmd-cli checkout exists at the expected path
+WXMD_CLI=/tmp/foolgry-editor/wxmd-cli/src/index.js
+[[ -f "$WXMD_CLI" ]] || fail "wxmd-cli not found at $WXMD_CLI. Clone it with: git clone --depth 1 https://github.com/foolgry/editor /tmp/foolgry-editor  (note: /tmp is wiped on reboot — re-clone if it disappears)."
 
 echo "Preflight OK."
 ```
@@ -50,6 +57,10 @@ missing piece and quote the exact step they need to take. Examples:
 - "`WECHAT_SECRET` is still the placeholder value — please paste your real
   AppSecret into `.env`."
 - "`md2wechat` isn't installed — please install it before re-running this skill."
+- "`node` isn't installed — wxmd-cli needs a Node.js runtime."
+- "wxmd-cli isn't at `/tmp/foolgry-editor/wxmd-cli/src/index.js` — please run
+  the git clone command from the README. /tmp is wiped on reboot, so this can
+  happen even after a successful first install."
 
 After a successful preflight, the WeChat credentials are already exported into
 the environment for the rest of the run, so later stages do not need to re-source
@@ -256,8 +267,19 @@ Steps:
    img.save('/tmp/<slug>-cover.jpg', quality=92)
    ```
 
-2. Upload cover: `md2wechat upload_image /tmp/<slug>-cover.jpg` — capture
-   `media_id` from the JSON response.
+2. Upload the cover and capture the `media_id` from the JSON response into a
+   shell variable so the next step can reference it:
+
+   ```bash
+   MEDIA_ID=$(md2wechat upload_image /tmp/<slug>-cover.jpg \
+     | python3 -c 'import sys, json; print(json.load(sys.stdin)["media_id"])')
+   echo "Cover media_id: $MEDIA_ID"
+   ```
+
+   If `md2wechat`'s output wraps the WeChat API response under a different key
+   (e.g. `.data.media_id` or `.thumb_media_id`), adjust the JSON path in the
+   `python3 -c` snippet — the rest of this stage uses `$MEDIA_ID` as the
+   captured value.
 
 3. Build `/tmp/<slug>-draft.json` using Python `json.dump` (never shell-escape
    HTML manually):
@@ -268,7 +290,7 @@ Steps:
      "author": "<original author>",
      "content": "<bilingual wechat html content>",
      "content_source_url": "<original url or empty string>",
-     "thumb_media_id": "<media_id from step 2>",
+     "thumb_media_id": "<value of $MEDIA_ID from step 2>",
      "need_open_comment": 0,
      "only_fans_can_comment": 0
    }]}
