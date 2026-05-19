@@ -115,7 +115,7 @@ keeps Cloudflare/Substack/Medium from returning empty bodies.
 
 From the raw extracted text, identify and preserve:
 - Title (exact wording)
-- Author, date, read time if present
+- Author (for the WeChat draft `author` field)
 - Every paragraph verbatim — do not rephrase, summarize, or rewrite a single word
 - All headings, lists, blockquotes belonging to the article body
 
@@ -123,6 +123,11 @@ From the raw extracted text, identify and preserve:
 not re-attach later. Stripping at the source means the rest of the pipeline
 never sees this content:
 
+- **Article dek / subhead / subtitle** — the short descriptive line that often
+  sits between the main title and the body. It's marketing copy, not article
+  content, and reads as redundant once the body is right below.
+- **Publish date** ("Jan 5, 2024", "January 5", "2 days ago", etc.)
+- **Read-time** ("5 min read", "·5 minutes", etc.)
 - Related Links / "Read more" / "More from this author" sections
 - Comments section and every reader comment
 - Footers, site navigation, share buttons, subscribe/CTA blocks
@@ -138,7 +143,11 @@ path and save to `<slug>/<slug>.md`. Proceed with that file.
 
 ### Stage 1 — Pre-processing
 
-- Parse frontmatter: translate `title` and `description`; pass all other fields verbatim.
+- Parse frontmatter: translate `title` (this is the *literal* translation —
+  Stage 6 generates an appealing rewrite on top). If `description` is present
+  (e.g. on local Markdown inputs that include a frontmatter dek), translate
+  it; for URL inputs, the dek was already stripped in Stage 0 so this field
+  is typically absent. Pass all other frontmatter fields verbatim.
 - Mark non-translatable content: fenced code, inline code, image paths, URLs, raw HTML, **human names**.
 - Load `glossary.json` if present — apply all entries exactly.
 
@@ -222,12 +231,94 @@ Match the register of the source (formal / conversational / technical). No exter
 
 ### Stage 6 — Deliver
 
+#### Step 1 — Generate an appealing ZH title
+
+Before writing any output file, produce an appealing Simplified-Chinese
+headline for the article. The literal translation from Stage 2 is the
+starting point; what we want here is a punchy, idiomatic ZH headline suited
+for a WeChat Official Account.
+
+If `DEEPSEEK_API_KEY` is set, ask DeepSeek (it sees both the EN original and
+the literal ZH so it can balance fidelity and appeal):
+
+```bash
+APPEALING_ZH_TITLE=$(curl -sS https://api.deepseek.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+  -d "$(jq -n \
+    --arg model "${DEEPSEEK_MODEL:-deepseek-chat}" \
+    --arg en "<EN title>" \
+    --arg zh "<literal ZH title from Stage 2>" \
+    '{
+      model: $model,
+      temperature: 0.7,
+      messages: [
+        {role:"system", content:"You write Simplified-Chinese headlines for a WeChat Official Account. Given an English article title and its literal Chinese translation, produce ONE appealing, punchy, idiomatic headline. Keep it close in length to the literal version. Preserve the core meaning. Use natural Chinese phrasing that catches attention without becoming clickbait. Output ONLY the headline — no quotes, no explanation, no surrounding whitespace."},
+        {role:"user",   content:("English: " + $en + "\nLiteral Chinese: " + $zh)}
+      ]
+    }')" \
+  | jq -r '.choices[0].message.content')
+```
+
+If `DEEPSEEK_API_KEY` is unset, generate the appealing title yourself — same
+constraints (punchy, idiomatic, faithful to meaning, no clickbait), no API
+call. If the DeepSeek request fails, do the same — log a one-line notice and
+fall back.
+
+The appealing ZH title replaces the literal one in every output:
+
+- `<slug>.zh.md` frontmatter `title`
+- The H1 (or top heading) of `<slug>.bilingual.md`, paired with the EN title
+- The cover image in Stage 7 (the `<zh_title>` placeholder in the PIL snippet)
+- The WeChat draft `title` field — format stays `<EN title> / <appealing ZH
+  title>`. The EN half is the "subtitle" side of the bilingual title concat
+  and stays as-is.
+
+#### Step 2 — Write the output files
+
 Write four files (using `<slug>` as the folder and base name). The original
 `<slug>.md` from Stage 0 stays in place, so the final folder holds five files.
 
 **`<slug>.zh.md`** — Chinese only. Frontmatter with translated title/description + refined body.
 
-**`<slug>.bilingual.md`** — Interleaved. Each English unit (heading, paragraph, list block) followed immediately by its Chinese translation. English is copied verbatim — never modified.
+**`<slug>.bilingual.md`** — Interleaved. English is copied verbatim — never
+modified.
+
+- **Paragraphs** are paired into a single Markdown paragraph: write the English
+  line ending with a backslash (CommonMark hard line break), then the Chinese
+  on the next line, then a blank line to close the paragraph. This renders as
+  one `<p>EN<br>ZH</p>`, so the bottom margin sits between pairs instead of
+  between the two languages — the EN and ZH read as a visual pair.
+
+  ```markdown
+  The cat sat on the mat.\
+  猫坐在垫子上。
+
+  The dog barked at the moon.\
+  狗对着月亮叫。
+  ```
+
+- **Headings, list items, and blockquotes** stay as separate blocks — English
+  unit followed immediately by its Chinese translation, blank line between
+  pairs. (Hard breaks don't work inside headings, and list items already group
+  visually.)
+
+**Source-link footer (URL inputs only).** Append a separator and the source
+URL at the end of the body of both `<slug>.zh.md` and `<slug>.bilingual.md`:
+
+```markdown
+---
+
+原文链接：<original url>
+```
+
+The Stage 7 draft push also sets `content_source_url`, which WeChat renders as
+the native **阅读原文** button at the bottom of the article — leave that as
+is. The inline footer is additive (visible in the article body itself, and in
+the `.md` files when read directly); the button is the official channel.
+
+For **local Markdown inputs** (no URL): skip this footer — there's no
+canonical source to link to.
 
 **Style selection — ask the user before generating HTML.**
 
@@ -297,7 +388,9 @@ source .env
 set +a
 ```
 
-**Article title:** `<EN title> / <ZH title>` (e.g. `Boil the Ocean / 煮沸海洋`)
+**Article title:** `<EN title> / <appealing ZH title>` — the EN half is the
+"subtitle" side of the bilingual concat and stays verbatim; the ZH half is
+the appealing headline produced in Stage 6 Step 1.
 **Author:** original article author (from the source metadata)
 
 Steps:

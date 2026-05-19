@@ -25,6 +25,10 @@ WeChat) in a single agent pass.
 - Stage 4 (Fluency Review) optionally delegates to a Chinese-native LLM
   (DeepSeek) as a critic when `DEEPSEEK_API_KEY` is set; the agent applies the
   suggested edits. Without the key it does the fluency read itself.
+- Stage 6 generates an appealing ZH title (DeepSeek when the key is set,
+  otherwise the agent itself) and uses it in every output. The bilingual
+  WeChat title stays `<EN title> / <appealing ZH title>` — the EN half is the
+  preserved "subtitle" line.
 
 See `.claude/commands/share-bilingual-article-to-wechat.md` for the executable prompt
 and `WORKFLOW.md` for the pipeline spec.
@@ -43,8 +47,10 @@ within a single agent pass.
   user so they know which Stage 4 path the run is taking.
 
 ### Preprocessor
-- Parses frontmatter: marks `title` and `description` as translatable; all other
-  fields pass through verbatim.
+- Parses frontmatter: marks `title` as translatable (literal — the appealing
+  rewrite happens in Stage 6); translates `description` when present (URL
+  inputs usually won't have one, since the dek is stripped in Stage 0). All
+  other fields pass through verbatim.
 - Segments the document into translatable units.
 - Marks non-translatable blocks: fenced code, inline code, HTML, URLs, image paths,
   human names.
@@ -80,6 +86,8 @@ within a single agent pass.
 - No external style guide — honors the original voice.
 
 ### Delivery Agent
+- Generates the appealing ZH title (DeepSeek when keyed, otherwise itself)
+  and uses it in every output.
 - Writes the final translated Markdown and the bilingual / WeChat HTML variants.
 - Appends approved segment pairs to `glossary.json` (see WORKFLOW.md for the
   inclusion criteria).

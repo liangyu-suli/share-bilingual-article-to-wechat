@@ -25,10 +25,12 @@ own native review.
   unquoted into the command line.
 - Strip `<script>`, `<style>`, `<nav>`, `<footer>`, `<header>` blocks and HTML
   comments from the raw response.
-- Identify and preserve from the article body: title, author, date, every
-  paragraph verbatim, all headings, lists, and blockquotes.
+- Identify and preserve from the article body: title, author, every paragraph
+  verbatim, all headings, lists, and blockquotes.
 - **Drop entirely at the source** — do not include in the saved Markdown, do not
   translate, do not re-attach later:
+  - Article dek / subhead / subtitle (the descriptive line between title and body)
+  - Publish date and read-time ("Jan 5, 2024", "5 min read", etc.)
   - Related Links / "Read more" / "More from this author" sections
   - Comments section and every reader comment
   - Footers, site navigation, share buttons, subscribe / CTA blocks
@@ -39,8 +41,10 @@ own native review.
   proceed.
 
 ### Stage 1 — Pre-processing
-- Parse frontmatter: translate `title` and `description`; pass through `slug`, `date`,
-  `tags`, `author` verbatim.
+- Parse frontmatter: translate `title` (literal — Stage 6 produces the
+  appealing rewrite on top). Translate `description` if present; for URL
+  inputs the dek was already stripped in Stage 0, so the field is typically
+  absent. Pass through `slug`, `date`, `tags`, `author` verbatim.
 - Segment the document into translatable units (paragraphs, headings, list items).
 - Mark non-translatable content: fenced code, inline code, HTML, URLs, image paths,
   **human names**.
@@ -87,6 +91,14 @@ the contract.
 - No external style guide is applied — honor the original voice.
 
 ### Stage 6 — Delivery & Memory Update
+- **Generate an appealing ZH title.** Take the EN title plus the literal ZH
+  title (from Stage 2) and produce a punchy, idiomatic Simplified-Chinese
+  headline suited for WeChat — same meaning, more appeal, similar length, no
+  clickbait. Delegated to DeepSeek when `DEEPSEEK_API_KEY` is set; otherwise
+  the agent writes it. This appealing title replaces the literal one in every
+  output (zh.md frontmatter, bilingual.md heading, cover image, WeChat draft
+  title). The bilingual WeChat title stays `<EN title> / <appealing ZH title>`
+  — the EN half is the "subtitle" line and is preserved as-is.
 - Write the final translated Markdown plus the bilingual / WeChat HTML variants
   (see the slash command for exact file layout).
 - Append new approved term pairs to `glossary.json` (see "Glossary" below for the

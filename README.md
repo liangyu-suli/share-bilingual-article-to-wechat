@@ -23,11 +23,12 @@ Designed for [Claude Code](https://claude.com/claude-code) and tested there; run
 Preflight → Fetch → Pre-process → Translate → Correctness → Fluency → Style → Deliver → Push
 ```
 
-- Preserves source text verbatim — no paraphrasing, no summarization
-- Strips related links, comments, footers, share buttons, and CTAs at the source so they never enter the translation pipeline
+- Preserves source body text verbatim — no paraphrasing, no summarization
+- Strips dek/subhead, publish date, read-time, related links, comments, footers, share buttons, and CTAs at the source so they never enter the translation pipeline
 - Keeps human names in Latin script — never transliterated
 - Honors the original register (formal / conversational / technical)
 - **Fluency review uses a Chinese-native LLM critic when `DEEPSEEK_API_KEY` is set** — DeepSeek reads the draft as a native Chinese reader and emits suggested edits; the agent applies them. Falls back to the agent's own native review when the key is absent.
+- **Generates an appealing ZH title for the WeChat draft** — DeepSeek when keyed, the agent itself otherwise. The literal ZH translation feeds it as a faithfulness anchor. The bilingual WeChat title stays `<EN> / <appealing ZH>`.
 - Halts for human input when the source is genuinely ambiguous
 - Grows `glossary.json` with approved term pairs across articles
 
