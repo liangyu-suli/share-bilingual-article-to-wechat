@@ -1,33 +1,33 @@
 # /share-bilingual-article-to-wechat
 
-A Claude Code skill that translates English blog posts into Simplified Chinese and pushes bilingual drafts directly to WeChat Official Account.
+An AI agent skill that translates English blog posts into Simplified Chinese and pushes bilingual drafts directly to WeChat Official Account.
 
 ## Install
 
-Add this skill to any Claude Code project:
+Feed the skill definition to your agent:
 
 ```bash
-# Clone into your project's skills directory
-git clone https://github.com/liangyu-suli/share-bilingual-article-to-wechat .claude/commands/share-bilingual-article-to-wechat
-
-# Or copy just the skill file
-curl -o .claude/commands/share-bilingual-article-to-wechat.md \
+# Download the skill file
+curl -o share-bilingual-article-to-wechat.md \
   https://raw.githubusercontent.com/liangyu-suli/share-bilingual-article-to-wechat/main/.claude/commands/share-bilingual-article-to-wechat.md
 ```
 
-**For AI agents** — add to your agent's system prompt or tool list:
+Then load it into your agent however it accepts skill/instruction files — as a system prompt addition, a tool definition, or a commands directory entry.
 
+**Invoke:**
 ```
-Skill: /share-bilingual-article-to-wechat
-Source: https://raw.githubusercontent.com/liangyu-suli/share-bilingual-article-to-wechat/main/.claude/commands/share-bilingual-article-to-wechat.md
-Invoke: /share-bilingual-article-to-wechat <url-or-markdown-path>
+/share-bilingual-article-to-wechat <url>
+/share-bilingual-article-to-wechat <path-to-markdown-file>
 ```
 
 ## Prerequisites
 
-- [Claude Code](https://claude.ai/code) CLI
 - [md2wechat](https://github.com/geekjourneyx/md2wechat-skill) — WeChat draft publisher
-- [@foolgry/wxmd-cli](https://github.com/foolgry/editor) — HTML theme renderer (`npm install -g @foolgry/wxmd-cli`, then clone the repo to `/tmp/foolgry-editor`)
+- [@foolgry/wxmd-cli](https://github.com/foolgry/editor) — HTML theme renderer
+  ```bash
+  npm install -g @foolgry/wxmd-cli
+  git clone --depth 1 https://github.com/foolgry/editor /tmp/foolgry-editor
+  ```
 - Python 3 with Pillow (`pip install Pillow`)
 - A WeChat Official Account (服务号 or 订阅号)
 
@@ -41,24 +41,15 @@ Invoke: /share-bilingual-article-to-wechat <url-or-markdown-path>
 2. Add your machine's outbound IP to the WeChat IP whitelist:
    - WeChat Console → Settings → Development → Basic Configuration → IP Whitelist
    - Check your current IP: `curl -s https://api.ipify.org`
-   - WeChat requires a **static outbound IP**. On home networks with rotating IPs you'll need to refresh the whitelist whenever the address changes — or run the skill behind a fixed-IP VPN / cloud relay.
+   - WeChat requires a **static outbound IP**. On home networks with rotating IPs you'll need to refresh the whitelist whenever the address changes — or run behind a fixed-IP VPN / cloud relay.
 
 The skill runs a preflight check on every invocation and halts with a clear message if `.env` is missing, credentials are placeholders, or a dependency isn't installed.
 
-## Usage
-
-```
-/share-bilingual-article-to-wechat https://example.com/some-article
-/share-bilingual-article-to-wechat path/to/article.md
-```
-
-The skill will ask you to pick an HTML theme from 20 options before generating output.
-
 ## What it does
 
-1. Fetches the full article verbatim (no paraphrasing) — strips comments, links, footers at the source
+1. Fetches the full article verbatim (no paraphrasing) — strips comments, links, and footers at the source
 2. Translates to Simplified Chinese through a 6-stage review pipeline
-3. Asks you to choose a WeChat HTML theme (20 styles available)
+3. Asks you to pick a WeChat HTML theme (20 styles available)
 4. Saves five files under `<slug>/`:
 
 | File | Description |
