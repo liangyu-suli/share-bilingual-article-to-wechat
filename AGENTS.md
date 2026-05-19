@@ -22,8 +22,9 @@ WeChat) in a single agent pass.
 
 - If the source contains genuinely ambiguous segments, the agent surfaces clarifying
   questions to the user inline before continuing.
-- If overall confidence falls below 0.75, the agent halts and reports the issues
-  instead of delivering.
+- Stage 4 (Fluency Review) optionally delegates to a Chinese-native LLM
+  (DeepSeek) as a critic when `DEEPSEEK_API_KEY` is set; the agent applies the
+  suggested edits. Without the key it does the fluency read itself.
 
 See `.claude/commands/share-bilingual-article-to-wechat.md` for the executable prompt
 and `WORKFLOW.md` for the pipeline spec.
@@ -34,11 +35,12 @@ These roles are conceptual — the actual implementation runs them as sequential
 within a single agent pass.
 
 ### Orchestrator
-- Drives the pipeline: pre-processing → translation → correctness → fluency → style →
-  scoring → delivery.
+- Drives the pipeline: pre-processing → translation → correctness → fluency →
+  style → delivery → push.
 - Accumulates clarifying questions during correctness review; halts and asks the user
-  before scoring if any exist.
-- Halts and reports issues to the user if any confidence dimension falls below 0.75.
+  before fluency review if any exist.
+- Surfaces the preflight's "DeepSeek fluency critic: enabled/disabled" line to the
+  user so they know which Stage 4 path the run is taking.
 
 ### Preprocessor
 - Parses frontmatter: marks `title` and `description` as translatable; all other
@@ -64,18 +66,18 @@ within a single agent pass.
 - Reads the corrected draft without referencing the source.
 - Fixes unnatural phrasing, grammar, and flow as a native Chinese reader.
 - Does not reintroduce source-language structure.
+- **When `DEEPSEEK_API_KEY` is set**, delegates the read to DeepSeek as a
+  critic (system prompt asks for a list of `<original> → <suggestion> ——
+  <reason>` edits) and applies the suggestions. Override the model via
+  `DEEPSEEK_MODEL` (default: `deepseek-chat`). If the API call fails, logs a
+  one-line notice and falls back to native review for this run.
+- **Without the key**, performs the fluency read itself — same goals, same
+  output shape, one fewer pair of eyes.
 
 ### Style Refiner
 - Identifies the register of the source (formal, conversational, technical).
 - Ensures the Chinese output matches that register.
 - No external style guide — honors the original voice.
-
-### Confidence Scorer
-- Runs as an independent review pass, ideally via a sub-agent so the scoring is not
-  biased by the translator's own reasoning.
-- Scores correctness, fluency, and style 0.0–1.0.
-- Overall score is the minimum of the three dimensions.
-- If overall < 0.75, signals the Orchestrator to halt for human review.
 
 ### Delivery Agent
 - Writes the final translated Markdown and the bilingual / WeChat HTML variants.

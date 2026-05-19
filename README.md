@@ -20,14 +20,15 @@ Designed for [Claude Code](https://claude.com/claude-code) and tested there; run
 ## Pipeline
 
 ```
-Preflight → Fetch → Pre-process → Translate → Correctness → Fluency → Style → Confidence → Deliver → Push
+Preflight → Fetch → Pre-process → Translate → Correctness → Fluency → Style → Deliver → Push
 ```
 
 - Preserves source text verbatim — no paraphrasing, no summarization
 - Strips related links, comments, footers, share buttons, and CTAs at the source so they never enter the translation pipeline
 - Keeps human names in Latin script — never transliterated
 - Honors the original register (formal / conversational / technical)
-- Halts for human input when source is ambiguous or confidence < 0.75
+- **Fluency review uses a Chinese-native LLM critic when `DEEPSEEK_API_KEY` is set** — DeepSeek reads the draft as a native Chinese reader and emits suggested edits; the agent applies them. Falls back to the agent's own native review when the key is absent.
+- Halts for human input when the source is genuinely ambiguous
 - Grows `glossary.json` with approved term pairs across articles
 
 ## Requirements
@@ -39,6 +40,8 @@ Preflight → Fetch → Pre-process → Translate → Correctness → Fluency �
 | [foolgry/editor](https://github.com/foolgry/editor) (wxmd-cli) | Renders WeChat HTML in 20 themes | `git clone --depth 1 https://github.com/foolgry/editor /tmp/foolgry-editor` |
 | Python 3 + Pillow | Generates the cover image | `pip install Pillow` |
 | Node.js | Runs wxmd-cli | `brew install node` (or your platform's equivalent) |
+| `jq` | Builds the DeepSeek request payload (only required when `DEEPSEEK_API_KEY` is set) | `brew install jq` |
+| **Optional:** [DeepSeek API key](https://platform.deepseek.com/) | Chinese-native LLM critic for the Stage 4 fluency review | Sign up, create a key, paste into `.env` as `DEEPSEEK_API_KEY` |
 | A WeChat Official Account | Receives the draft | Service Account (服务号) or Subscription Account (订阅号) |
 
 ## Setup
@@ -49,7 +52,11 @@ cd share-bilingual-article-to-wechat
 
 cp .env.example .env
 chmod 600 .env
-# edit .env — paste your WECHAT_APPID and WECHAT_SECRET from the WeChat console
+# edit .env:
+#   - WECHAT_APPID, WECHAT_SECRET — required, from the WeChat console
+#   - DEEPSEEK_API_KEY            — optional, enables the Chinese-LLM
+#                                    fluency critic; omit to let the
+#                                    agent do the fluency review itself
 ```
 
 WeChat requires a **static outbound IP**. Add yours to the whitelist:

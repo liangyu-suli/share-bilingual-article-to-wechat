@@ -39,15 +39,33 @@ command -v md2wechat >/dev/null 2>&1 || fail "md2wechat is not installed or not 
 # 4. Python + Pillow available for cover image generation
 python3 -c 'import PIL' 2>/dev/null || fail "Python Pillow is not installed. Run: pip install Pillow"
 
-# 5. Node.js is on PATH (wxmd-cli is a Node script invoked in Stage 7)
+# 5. Node.js is on PATH (wxmd-cli is a Node script invoked in Stage 6)
 command -v node >/dev/null 2>&1 || fail "Node.js is not installed or not on PATH. Install it (brew install node, nvm, etc.) before re-running."
 
 # 6. wxmd-cli checkout exists at the expected path
 WXMD_CLI=/tmp/foolgry-editor/wxmd-cli/src/index.js
 [[ -f "$WXMD_CLI" ]] || fail "wxmd-cli not found at $WXMD_CLI. Clone it with: git clone --depth 1 https://github.com/foolgry/editor /tmp/foolgry-editor  (note: /tmp is wiped on reboot — re-clone if it disappears)."
 
+# 7. DEEPSEEK_API_KEY for the Stage 4 fluency critic — optional.
+#    `.env` was already sourced above, so a key defined there takes precedence;
+#    if `.env` omits the key, whatever is already in the shell environment
+#    flows through. If neither defines it, Stage 4 falls back to this agent's
+#    own native review. When the key IS present, `jq` must also be available
+#    to build the DeepSeek request payload safely.
+if [[ -n "${DEEPSEEK_API_KEY:-}" ]]; then
+    command -v jq >/dev/null 2>&1 || fail "jq is not installed (Stage 4 uses it to build the DeepSeek request payload). Install with: brew install jq — or unset DEEPSEEK_API_KEY to fall back to native review."
+    echo "DeepSeek fluency critic: enabled (model: ${DEEPSEEK_MODEL:-deepseek-chat})."
+else
+    echo "DeepSeek fluency critic: disabled (DEEPSEEK_API_KEY not set) — Stage 4 will use the agent's own native review."
+fi
+
 echo "Preflight OK."
 ```
+
+When you (the agent) report a preflight result to the user, **also surface the
+DeepSeek line above verbatim** so they know which fluency path Stage 4 will
+take on this run. If they expected the critic to be enabled and it isn't,
+they'll want to set the key and re-run rather than learn after the fact.
 
 When you (the agent) report a preflight failure to the user, name the specific
 missing piece and quote the exact step they need to take. Examples:
@@ -61,6 +79,8 @@ missing piece and quote the exact step they need to take. Examples:
 - "wxmd-cli isn't at `/tmp/foolgry-editor/wxmd-cli/src/index.js` — please run
   the git clone command from the README. /tmp is wiped on reboot, so this can
   happen even after a successful first install."
+- "`DEEPSEEK_API_KEY` is set but `jq` isn't installed — please run
+  `brew install jq`, or unset the key to fall back to native fluency review."
 
 After a successful preflight, the WeChat credentials are already exported into
 the environment for the rest of the run, so later stages do not need to re-source
@@ -138,27 +158,69 @@ Before I continue, I need to clarify:
 
 ### Stage 4 — Fluency Review
 
-Read the translation as a native Chinese reader — no source reference. Fix unnatural phrasing, grammar, stiff constructions.
+Goal: read the post-Stage-3 draft as a native Chinese reader (no source
+reference) and fix translationese, awkward word order, stiff grammar.
+
+Two paths, chosen by whether `DEEPSEEK_API_KEY` is set (the preflight printed
+which one is active):
+
+- **DeepSeek critic + agent applies** (key set). A Chinese-trained model reads
+  the draft and emits a list of suggested edits. You (the agent) apply them.
+  The split keeps a single writer's voice (yours) while bringing in a model
+  trained primarily on Chinese to catch issues a primarily-English model
+  misses.
+- **Native review** (key not set). You do the read yourself, with the same
+  goals. Fallback path — same output shape, one fewer pair of eyes.
+
+#### Path A — DeepSeek critic
+
+1. Write the post-Stage-3 Chinese draft to `/tmp/<slug>.zh.draft.md`.
+
+2. Call DeepSeek for a critique:
+
+   ```bash
+   curl -sS https://api.deepseek.com/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+     -d "$(jq -n \
+       --arg model "${DEEPSEEK_MODEL:-deepseek-chat}" \
+       --rawfile draft /tmp/<slug>.zh.draft.md \
+       '{
+         model: $model,
+         temperature: 0.3,
+         messages: [
+           {role:"system", content:"You are a native Simplified-Chinese editor. Read the Chinese text below WITHOUT any English source. Flag spots that read as translationese — awkward word order, stiff syntax, redundant connectives, calques. For each issue output one line in the exact format:  <original phrase>  →  <suggested replacement>  ——  <one-line reason>. Do not rewrite the whole text. If it already reads naturally, output the single line: NO_EDITS."},
+           {role:"user",   content:$draft}
+         ]
+       }')" \
+     | jq -r '.choices[0].message.content'
+   ```
+
+   `DEEPSEEK_MODEL` defaults to `deepseek-chat`. Override in `.env` to use a
+   different DeepSeek model (e.g. a newer Flash release).
+
+3. Apply each suggested edit when it genuinely improves fluency; skip any that
+   change meaning or break Markdown structure. If the critique is `NO_EDITS`,
+   keep the draft as-is.
+
+4. Proceed to Stage 5 with the post-edit draft. `/tmp/<slug>.zh.draft.md` is
+   wiped on reboot — no manual cleanup needed.
+
+5. If the curl call fails (network, auth, rate limit), don't halt — log a one-
+   line notice to the user ("DeepSeek critic failed: <reason>; falling back to
+   native review") and continue with Path B for this run.
+
+#### Path B — Native review (fallback)
+
+Read the draft yourself with a Chinese-reader hat on and apply the same kind
+of edits — translationese, awkward order, stiff phrasing. Output is the same
+shape; only the second pair of eyes is missing.
 
 ### Stage 5 — Style Refinement
 
 Match the register of the source (formal / conversational / technical). No external style guide — honor the original voice.
 
-### Stage 6 — Confidence Scoring
-
-Run this stage as an **independent review pass** — delegate it to a sub-agent
-(via the Agent tool) so the scorer does not see the translator's reasoning. The
-sub-agent receives the source and the final draft and returns a score 0.0–1.0
-on each of:
-
-- `correctness` — fidelity to source meaning
-- `fluency` — natural readability in Chinese
-- `style` — register match with source
-
-Overall = minimum of the three. If overall < **0.75**, halt and report the
-flagged segments instead of delivering.
-
-### Stage 7 — Deliver
+### Stage 6 — Deliver
 
 Write four files (using `<slug>` as the folder and base name). The original
 `<slug>.md` from Stage 0 stays in place, so the final folder holds five files.
@@ -219,7 +281,7 @@ only the article body.
 
 Tell the user the paths to open both `.wechat.html` files in their browser for local preview.
 
-### Stage 8 — Push to WeChat Draft
+### Stage 7 — Push to WeChat Draft
 
 Push the **bilingual** WeChat HTML as a draft. Credentials were already loaded
 into the environment by preflight (`set -a; source .env; set +a`), so run

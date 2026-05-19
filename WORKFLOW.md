@@ -10,8 +10,12 @@ The pipeline is implemented as a Markdown slash command — see
 Designed for Claude Code; runnable in any AI agent that can execute multi-step
 Markdown instructions from a project's commands directory. All stages run
 sequentially in a single agent pass. The agent surfaces clarifying questions
-inline when source segments are ambiguous, and halts with a written report
-instead of delivering when confidence falls below the gate.
+inline when source segments are ambiguous.
+
+Stage 4 (Fluency Review) optionally delegates to a Chinese-native LLM
+(DeepSeek) as a critic when `DEEPSEEK_API_KEY` is set; the agent then applies
+the suggested edits. If the key is absent, Stage 4 falls back to the agent's
+own native review.
 
 ## Pipeline Stages
 
@@ -56,29 +60,33 @@ instead of delivering when confidence falls below the gate.
   user inline before continuing.
 
 ### Stage 4 — Fluency Review
-- Read the corrected draft without referencing the source.
-- Fix unnatural phrasing, grammar, and flow from a native Chinese reader's perspective.
-- Do not reintroduce source-language structure.
+Read the corrected draft without referencing the source. Fix unnatural
+phrasing, grammar, and flow from a native Chinese reader's perspective. Do not
+reintroduce source-language structure.
+
+Two paths, chosen by whether `DEEPSEEK_API_KEY` is set:
+
+- **DeepSeek critic + agent applies** (key set). The agent writes the post-
+  Stage-3 draft to a temp file, calls DeepSeek with a system prompt that asks
+  for a numbered list of `<original> → <suggestion> —— <reason>` edits, then
+  applies the edits that genuinely improve fluency. The split keeps a single
+  writer's voice (the agent's) while bringing in a Chinese-trained model as a
+  reader. Override the model via `DEEPSEEK_MODEL` (defaults to
+  `deepseek-chat`). If the API call fails, log a one-line notice and fall
+  back to native review for this run.
+- **Native review** (key absent). The agent performs the fluency read itself
+  with the same goals. Same output shape — only the second pair of eyes is
+  missing.
+
+The exact request payload lives in the slash command; this spec only fixes
+the contract.
 
 ### Stage 5 — Style Refinement
 - Identify the register of the source (formal, conversational, technical).
 - Ensure the Chinese output matches that register.
 - No external style guide is applied — honor the original voice.
 
-### Stage 6 — Confidence Scoring
-Run as an **independent review pass** (ideally via a sub-agent) so the scoring is
-not biased by the translator's own reasoning. Score 0.0–1.0 per dimension:
-
-| Dimension | Description |
-|---|---|
-| `correctness` | Fidelity to source meaning |
-| `fluency` | Natural readability in Chinese |
-| `style` | Register match with source |
-
-Overall score is the minimum of the three dimensions. If overall < **0.75**, halt
-and report the issues to the user instead of delivering.
-
-### Stage 7 — Delivery & Memory Update
+### Stage 6 — Delivery & Memory Update
 - Write the final translated Markdown plus the bilingual / WeChat HTML variants
   (see the slash command for exact file layout).
 - Append new approved term pairs to `glossary.json` (see "Glossary" below for the
