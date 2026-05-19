@@ -5,12 +5,13 @@ This file describes the agent roles and conventions for the translation workflow
 ## Project Overview
 
 A multi-stage pipeline that translates English Markdown content into Simplified Chinese
-and pushes a bilingual draft to a WeChat Official Account. Packaged as a Claude Code
-slash command so any agent can invoke it without knowing the internal stages.
+and pushes a bilingual draft to a WeChat Official Account. Packaged as a Markdown
+slash command — designed for Claude Code, runnable in any AI agent that loads
+project command files.
 
 ## Skill Interface
 
-Invoked as a Claude Code slash command:
+Invoked as a Markdown slash command from the project root:
 
 ```
 /share-bilingual-article-to-wechat <url-or-path-to-markdown>
@@ -30,7 +31,7 @@ and `WORKFLOW.md` for the pipeline spec.
 ## Agent Roles
 
 These roles are conceptual — the actual implementation runs them as sequential phases
-within a single Claude Code pass.
+within a single agent pass.
 
 ### Orchestrator
 - Drives the pipeline: pre-processing → translation → correctness → fluency → style →

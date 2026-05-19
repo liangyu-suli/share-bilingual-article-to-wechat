@@ -5,20 +5,34 @@
 A batch translation skill that converts English Markdown content into Simplified Chinese
 and (optionally) pushes the result to a WeChat Official Account as a draft.
 
-The pipeline is implemented as a Claude Code slash command — see
+The pipeline is implemented as a Markdown slash command — see
 `.claude/commands/share-bilingual-article-to-wechat.md` for the executable prompt.
-All stages run sequentially in a single agent pass. The agent surfaces clarifying
-questions inline when source segments are ambiguous, and halts with a written report
+Designed for Claude Code; runnable in any AI agent that can execute multi-step
+Markdown instructions from a project's commands directory. All stages run
+sequentially in a single agent pass. The agent surfaces clarifying questions
+inline when source segments are ambiguous, and halts with a written report
 instead of delivering when confidence falls below the gate.
 
 ## Pipeline Stages
 
 ### Stage 0 — Fetch (URL inputs only)
-- Pull raw HTML with `curl` (never `WebFetch`, which paraphrases).
-- Strip script/style/nav/footer/header and HTML comments.
-- Identify and preserve: title, author, date, every paragraph verbatim, all headings,
-  lists, blockquotes.
-- Save as `<slug>/<slug>.md`. Continue from that file.
+- Pull raw HTML with `curl` (never `WebFetch`, which paraphrases). Bind the
+  user-supplied URL to a shell variable and quote it — never interpolate
+  unquoted into the command line.
+- Strip `<script>`, `<style>`, `<nav>`, `<footer>`, `<header>` blocks and HTML
+  comments from the raw response.
+- Identify and preserve from the article body: title, author, date, every
+  paragraph verbatim, all headings, lists, and blockquotes.
+- **Drop entirely at the source** — do not include in the saved Markdown, do not
+  translate, do not re-attach later:
+  - Related Links / "Read more" / "More from this author" sections
+  - Comments section and every reader comment
+  - Footers, site navigation, share buttons, subscribe / CTA blocks
+  - Cookie banners, paywall prompts, newsletter pop-ups
+- Save what remains as `<slug>/<slug>.md`. Continue from that file.
+- **Local Markdown inputs** apply the same drop-list before Stage 1 — open the
+  file, remove any related-links / comments / footer sections, save back, then
+  proceed.
 
 ### Stage 1 — Pre-processing
 - Parse frontmatter: translate `title` and `description`; pass through `slug`, `date`,
@@ -88,16 +102,22 @@ and report the issues to the user instead of delivering.
 
 ## Content Removal Rules
 
-The "translate verbatim" rule has one explicit exception: when generating the
-WeChat HTML variants, the following source sections are dropped entirely
-rather than translated:
+The "translate verbatim" rule has one explicit exception: the sections listed
+in Stage 0's drop-list are removed from the source Markdown **before**
+translation, not after. By the time the translator sees the document, only
+the article body remains.
 
-- Related Links / "Read more" sections
-- Comments sections and reader comments
-- Footers, navigation, share buttons
+Stripping at the source means:
 
-What remains and *is* translated verbatim: article title, subtitle, author/date line,
-TL;DR / lede, body paragraphs.
+- The translation pipeline never spends a pass on content that's going to be dropped.
+- The bilingual `<slug>.bilingual.md` and the generated WeChat HTML are clean
+  by construction — no post-HTML DOM surgery needed.
+- The original `<slug>.md` saved in Stage 0 is itself the cleaned source —
+  there is no separate "full source" snapshot.
+
+What is translated verbatim: article title, subtitle, author / date line, TL;DR
+or lede, body paragraphs, headings, lists, and blockquotes belonging to the
+article body.
 
 ## Glossary
 
