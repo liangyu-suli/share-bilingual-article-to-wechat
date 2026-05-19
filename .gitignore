@@ -1,0 +1,17 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Generated artifacts the workflow creates and is supposed to delete
+*.wechat.prompt.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
